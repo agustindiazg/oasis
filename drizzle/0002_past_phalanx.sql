@@ -1,0 +1,1 @@
+ALTER TABLE `clients` ADD `started_at` timestamp DEFAULT (now()) NOT NULL;
