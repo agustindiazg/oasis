@@ -6,7 +6,7 @@ import { startOfDay } from "date-fns";
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
-import { auditLogs, billingPeriods, billingPlans, clients } from "@/lib/db/schema";
+import { auditLogs, billingPeriods, billingPlans, clients, servicePlans } from "@/lib/db/schema";
 import { assertWorkspaceAdmin, getCurrentContext } from "@/lib/current-context";
 import { computeInitialDueDate } from "@/lib/billing/schedule";
 import { generatePeriodsForPlan } from "@/lib/billing/generate";
@@ -27,6 +27,8 @@ const schema = z.object({
   intervalDays: z.coerce.number().int().min(1).max(365).optional(),
   firstCharge: z.enum(["NEXT", "TODAY", "CUSTOM"]),
   firstChargeDate: z.string().optional(),
+  servicePlanId: z.string().uuid().or(z.literal("")),
+  saveAsServicePlan: z.enum(["on"]).optional(),
 });
 
 export async function createClient(formData: FormData) {
@@ -35,14 +37,33 @@ export async function createClient(formData: FormData) {
   const values = schema.parse(Object.fromEntries(formData));
   const clientId = crypto.randomUUID();
   const planId = crypto.randomUUID();
-  const amount = parseMoney(values.amount);
+  const [catalogPlan] = values.servicePlanId ? await db.select().from(servicePlans).where(and(eq(servicePlans.id, values.servicePlanId), eq(servicePlans.organizationId, context.organizationId), eq(servicePlans.status, "ACTIVE"))).limit(1) : [];
+  if (values.servicePlanId && !catalogPlan) throw new Error("Plan no encontrado.");
+  const amount = catalogPlan?.amount ?? parseMoney(values.amount);
+  const frequency = catalogPlan?.frequency ?? values.frequency;
+  const dueDay = catalogPlan?.dueDay ?? values.dueDay;
+  const serviceName = catalogPlan?.name ?? values.serviceName;
   const baseDueDate = values.firstCharge === "TODAY"
     ? new Date()
     : values.firstCharge === "CUSTOM" && values.firstChargeDate
       ? new Date(`${values.firstChargeDate}T12:00:00`)
-      : computeInitialDueDate(values.frequency, values.dueDay, values.intervalDays ?? null);
+      : computeInitialDueDate(frequency, dueDay, values.intervalDays ?? null);
 
   await db.transaction(async (tx) => {
+    let reusablePlanId = catalogPlan?.id ?? null;
+    if (!reusablePlanId && values.saveAsServicePlan === "on") {
+      reusablePlanId = crypto.randomUUID();
+      await tx.insert(servicePlans).values({
+        id: reusablePlanId,
+        organizationId: context.organizationId,
+        name: serviceName,
+        description: null,
+        amount,
+        currency: values.currency,
+        frequency,
+        dueDay: frequency === "MONTHLY" || frequency === "WEEKLY" ? dueDay : null,
+      });
+    }
     await tx.insert(clients).values({
       id: clientId,
       organizationId: context.organizationId,
@@ -56,12 +77,13 @@ export async function createClient(formData: FormData) {
       id: planId,
       organizationId: context.organizationId,
       clientId,
-      serviceName: values.serviceName,
+      servicePlanId: reusablePlanId,
+      serviceName,
       amount,
       currency: values.currency,
-      frequency: values.frequency,
+      frequency,
       intervalDays: null,
-      dueDay: values.frequency === "MONTHLY" || values.frequency === "WEEKLY" ? values.dueDay : null,
+      dueDay: frequency === "MONTHLY" || frequency === "WEEKLY" ? dueDay : null,
       nextPeriodAt: baseDueDate,
     });
     await tx.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: context.organizationId, userId: context.userId, action: "client.created", entityType: "client", entityId: clientId });
@@ -117,5 +139,53 @@ export async function updateClientPlan(formData: FormData) {
   if (plan.status === "ACTIVE") await generatePeriodsForPlan(plan.id);
   await syncPaymentLinks(context.organizationId).catch((error) => console.error("No se pudieron regenerar links; el cron reintentará.", error));
   revalidatePath("/admin"); revalidatePath("/admin/clientes"); revalidatePath(`/admin/clientes/${values.clientId}`); revalidatePath("/admin/cobros");
+  redirect(`/admin/clientes/${values.clientId}`);
+}
+
+const assignPlanSchema = z.object({
+  clientId: z.string().uuid().or(z.string().startsWith("client-")),
+  billingPlanId: z.string().uuid().or(z.string().startsWith("plan-")),
+  servicePlanId: z.string().uuid().or(z.literal("")),
+  serviceName: z.string().trim().min(2),
+  amount: z.string().min(1),
+  currency: z.literal("ARS"),
+  frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
+  dueDay: z.coerce.number().int().min(0).max(31),
+  saveAsServicePlan: z.enum(["on"]).optional(),
+});
+
+export async function assignClientPlan(formData: FormData) {
+  const context = await getCurrentContext();
+  assertWorkspaceAdmin(context);
+  const values = assignPlanSchema.parse(Object.fromEntries(formData));
+  const [[billingPlan], [catalogPlan]] = await Promise.all([
+    db.select().from(billingPlans).where(and(eq(billingPlans.id, values.billingPlanId), eq(billingPlans.clientId, values.clientId), eq(billingPlans.organizationId, context.organizationId))).limit(1),
+    ...(values.servicePlanId ? [db.select().from(servicePlans).where(and(eq(servicePlans.id, values.servicePlanId), eq(servicePlans.organizationId, context.organizationId), eq(servicePlans.status, "ACTIVE"))).limit(1)] : [Promise.resolve([])]),
+  ]);
+  if (!billingPlan || (values.servicePlanId && !catalogPlan)) throw new Error("No se encontró el plan seleccionado.");
+  const amount = catalogPlan?.amount ?? parseMoney(values.amount);
+  const frequency = catalogPlan?.frequency ?? values.frequency;
+  const dueDay = catalogPlan?.frequency === "MONTHLY" || catalogPlan?.frequency === "WEEKLY" ? catalogPlan.dueDay : catalogPlan ? null : values.dueDay;
+  const serviceName = catalogPlan?.name ?? values.serviceName;
+  const intervalDays = catalogPlan?.intervalDays ?? null;
+  const scheduleChanged = billingPlan.frequency !== frequency || billingPlan.dueDay !== dueDay || billingPlan.intervalDays !== intervalDays;
+  const nextPeriodAt = scheduleChanged ? computeInitialDueDate(frequency, dueDay, intervalDays) : billingPlan.nextPeriodAt;
+  await db.transaction(async (tx) => {
+    let reusablePlanId = catalogPlan?.id ?? null;
+    if (!reusablePlanId && values.saveAsServicePlan === "on") {
+      reusablePlanId = crypto.randomUUID();
+      await tx.insert(servicePlans).values({ id: reusablePlanId, organizationId: context.organizationId, name: serviceName, description: null, amount, currency: values.currency, frequency, intervalDays, dueDay });
+    }
+    await tx.update(billingPlans).set({ servicePlanId: reusablePlanId, serviceName, amount, currency: values.currency, frequency, intervalDays, dueDay, nextPeriodAt }).where(eq(billingPlans.id, billingPlan.id));
+    if (scheduleChanged) {
+      await tx.delete(billingPeriods).where(and(eq(billingPeriods.planId, billingPlan.id), gte(billingPeriods.dueAt, startOfDay(new Date())), inArray(billingPeriods.status, ["PENDING", "IN_PROCESS", "REJECTED"])));
+    } else {
+      await tx.update(billingPeriods).set({ amount, currency: values.currency, paymentLink: null }).where(and(eq(billingPeriods.planId, billingPlan.id), gte(billingPeriods.dueAt, startOfDay(new Date())), inArray(billingPeriods.status, ["PENDING", "IN_PROCESS", "REJECTED"])));
+    }
+    await tx.insert(auditLogs).values({ id: crypto.randomUUID(), organizationId: context.organizationId, userId: context.userId, action: "client.plan_assigned", entityType: "billing_plan", entityId: billingPlan.id, metadata: { servicePlanId: reusablePlanId } });
+  });
+  if (billingPlan.status === "ACTIVE") await generatePeriodsForPlan(billingPlan.id);
+  await syncPaymentLinks(context.organizationId).catch((error) => console.error("No se pudieron regenerar links; el cron reintentará.", error));
+  revalidatePath(`/admin/clientes/${values.clientId}`); revalidatePath(`/admin/clientes/${values.clientId}/cambiar-plan`); revalidatePath("/admin/clientes"); revalidatePath("/admin/cobros");
   redirect(`/admin/clientes/${values.clientId}`);
 }

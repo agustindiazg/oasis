@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { clerkClient } from "@clerk/nextjs/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLogs, organizations, waitlistLeads } from "@/lib/db/schema";
@@ -24,6 +25,22 @@ export async function leaveSupportWorkspace() {
   if (context.userRole !== "SUPER_ADMIN") throw new Error("Acceso denegado.");
   (await cookies()).delete("oasis_support_org");
   redirect("/console");
+}
+
+export async function grantSuperAdmin(formData: FormData) {
+  const context = await getCurrentContext();
+  if (context.userRole !== "SUPER_ADMIN") throw new Error("Acceso denegado.");
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  if (!email || !email.includes("@")) redirect("/console?superAdmin=invalid");
+
+  const client = await clerkClient();
+  const users = await client.users.getUserList({ emailAddress: [email], limit: 1 });
+  const target = users.data[0];
+  if (!target) redirect("/console?superAdmin=missing");
+
+  await client.users.updateUserMetadata(target.id, { privateMetadata: { platformRole: "SUPER_ADMIN" } });
+  await db.insert(auditLogs).values({ id: crypto.randomUUID(), userId: context.userId, action: "support.super_admin_granted", entityType: "clerk_user", entityId: target.id, metadata: { email } });
+  redirect("/console?superAdmin=granted");
 }
 
 export async function sendWaitlistInvite(formData: FormData) {

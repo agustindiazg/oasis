@@ -23,7 +23,7 @@ npm run db:seed
 npm run dev
 ```
 
-`AUTH_DEV_BYPASS=true` permite explorar el admin local sin configurar Google. Nunca debe habilitarse en producción. Para probar las herramientas internas de soporte, se puede usar `AUTH_DEV_ROLE=SUPER_ADMIN`; si no se define, el bypass entra como usuario común.
+El acceso local también usa Clerk; no existe un bypass de autenticación.
 
 ## Autenticación
 
@@ -42,7 +42,7 @@ Callback autorizado de Google:
 Configurar Google como proveedor social dentro del dashboard de Clerk. Clerk gestiona el callback de OAuth.
 ```
 
-`SUPER_ADMIN_EMAILS` acepta una lista separada por comas. Esos usuarios pueden abrir `/console` y entrar temporalmente a cualquier workspace. El acceso queda limitado por una cookie HttpOnly de cuatro horas y las mutaciones relevantes se registran en `audit_logs`.
+El rol de plataforma `SUPER_ADMIN` se administra en el `privateMetadata` del usuario en Clerk (`{ "platformRole": "SUPER_ADMIN" }`). Esos usuarios pueden abrir `/console` y entrar temporalmente a cualquier workspace. El acceso queda limitado por una cookie HttpOnly de cuatro horas y las mutaciones relevantes se registran en `audit_logs`.
 
 ## Mercado Pago
 
@@ -106,7 +106,7 @@ npm run build
 npm run start
 ```
 
-En producción usar HTTPS, `AUTH_DEV_BYPASS=false`, secretos diferentes a los locales y Node 20.19+.
+En producción usar HTTPS, secretos diferentes a los locales y Node 20.19+.
 
 ## Comandos útiles
 

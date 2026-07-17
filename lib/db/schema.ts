@@ -120,10 +120,26 @@ export const clients = mysqlTable("clients", {
   updatedAt: updatedAt(),
 }, (table) => [index("client_organization_idx").on(table.organizationId), index("client_name_idx").on(table.name)]);
 
+export const servicePlans = mysqlTable("service_plans", {
+  id: id().primaryKey(),
+  organizationId: id("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  amount: bigint("amount", { mode: "number", unsigned: true }).notNull(),
+  currency: varchar("currency", { length: 3 }).default("ARS").notNull(),
+  frequency: mysqlEnum("frequency", ["WEEKLY", "BIWEEKLY", "MONTHLY", "CUSTOM"]).notNull(),
+  intervalDays: int("interval_days"),
+  dueDay: int("due_day"),
+  status: mysqlEnum("status", ["ACTIVE", "ARCHIVED"]).default("ACTIVE").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [index("service_plan_org_idx").on(table.organizationId), index("service_plan_status_idx").on(table.organizationId, table.status)]);
+
 export const billingPlans = mysqlTable("billing_plans", {
   id: id().primaryKey(),
   organizationId: id("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   clientId: id("client_id").notNull().references(() => clients.id, { onDelete: "cascade" }),
+  servicePlanId: id("service_plan_id").references(() => servicePlans.id, { onDelete: "set null" }),
   serviceName: varchar("service_name", { length: 255 }).notNull(),
   amount: bigint("amount", { mode: "number", unsigned: true }).notNull(),
   currency: varchar("currency", { length: 3 }).default("ARS").notNull(),
@@ -136,7 +152,7 @@ export const billingPlans = mysqlTable("billing_plans", {
   canceledAt: timestamp("canceled_at"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (table) => [index("billing_plan_org_idx").on(table.organizationId), index("billing_plan_client_idx").on(table.clientId), index("billing_plan_next_idx").on(table.status, table.nextPeriodAt)]);
+}, (table) => [index("billing_plan_org_idx").on(table.organizationId), index("billing_plan_client_idx").on(table.clientId), index("billing_plan_service_idx").on(table.servicePlanId), index("billing_plan_next_idx").on(table.status, table.nextPeriodAt)]);
 
 export const billingPeriods = mysqlTable("billing_periods", {
   id: id().primaryKey(),
@@ -229,15 +245,16 @@ export const accountRelations = relations(account, ({ one }) => ({ user: one(use
 export const organizationsRelations = relations(organizations, ({ many, one }) => ({ members: many(organizationMembers), clients: many(clients), settings: one(businessSettings) }));
 export const organizationMembersRelations = relations(organizationMembers, ({ one }) => ({ organization: one(organizations, { fields: [organizationMembers.organizationId], references: [organizations.id] }), user: one(user, { fields: [organizationMembers.userId], references: [user.id] }) }));
 export const clientsRelations = relations(clients, ({ one, many }) => ({ organization: one(organizations, { fields: [clients.organizationId], references: [organizations.id] }), plans: many(billingPlans), periods: many(billingPeriods) }));
-export const billingPlansRelations = relations(billingPlans, ({ one, many }) => ({ client: one(clients, { fields: [billingPlans.clientId], references: [clients.id] }), periods: many(billingPeriods) }));
+export const servicePlansRelations = relations(servicePlans, ({ one, many }) => ({ organization: one(organizations, { fields: [servicePlans.organizationId], references: [organizations.id] }), assignments: many(billingPlans) }));
+export const billingPlansRelations = relations(billingPlans, ({ one, many }) => ({ client: one(clients, { fields: [billingPlans.clientId], references: [clients.id] }), servicePlan: one(servicePlans, { fields: [billingPlans.servicePlanId], references: [servicePlans.id] }), periods: many(billingPeriods) }));
 export const billingPeriodsRelations = relations(billingPeriods, ({ one, many }) => ({ client: one(clients, { fields: [billingPeriods.clientId], references: [clients.id] }), plan: one(billingPlans, { fields: [billingPeriods.planId], references: [billingPlans.id] }), payments: many(payments) }));
 
 export const schema = {
   user, session, account, verification, waitlistLeads,
   organizations, organizationMembers, businessSettings,
-  clients, billingPlans, billingPeriods,
+  clients, servicePlans, billingPlans, billingPeriods,
   paymentConnections, payments, webhookEvents, reminderDeliveries, auditLogs,
   userRelations, sessionRelations, accountRelations,
   organizationsRelations, organizationMembersRelations,
-  clientsRelations, billingPlansRelations, billingPeriodsRelations,
+  clientsRelations, servicePlansRelations, billingPlansRelations, billingPeriodsRelations,
 };

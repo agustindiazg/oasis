@@ -69,26 +69,12 @@ async function syncClerkUser(clerkUserId: string) {
 }
 
 export async function getCurrentContext(): Promise<CurrentContext> {
-  if (process.env.NODE_ENV !== "production" && process.env.AUTH_DEV_BYPASS === "true") {
-    const membership = await findMembership("dev-user");
-    if (!membership) throw new Error("Falta ejecutar `npm run db:seed` para usar AUTH_DEV_BYPASS.");
-    const devRole = process.env.AUTH_DEV_ROLE === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER";
-    const supportOrganizationId = (await cookies()).get("oasis_support_org")?.value;
-    if (devRole === "SUPER_ADMIN" && supportOrganizationId) {
-      const [organization] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, supportOrganizationId)).limit(1);
-      if (organization) return { userId: "dev-user", userName: "Ana Torres", userEmail: "ana@estudio.com", userRole: devRole, organizationId: organization.id, organizationName: organization.name, membershipRole: "ADMIN", isDevBypass: true };
-    }
-    return { userId: "dev-user", userName: "Ana Torres", userEmail: "ana@estudio.com", userRole: devRole, ...membership, isDevBypass: true };
-  }
-
   const clerkSession = await clerkAuth();
   if (clerkSession.userId) {
     const localUser = await syncClerkUser(clerkSession.userId);
     if (!localUser) redirect("/login");
-    const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS ?? "").split(",").map((email) => email.trim().toLowerCase()).filter(Boolean);
-    if (superAdminEmails.includes(localUser.email.toLowerCase())) await db.update(user).set({ role: "SUPER_ADMIN" }).where(eq(user.id, localUser.id));
-    const [dbUser] = await db.select({ role: user.role }).from(user).where(eq(user.id, localUser.id)).limit(1);
-    const userRole = dbUser?.role ?? "USER";
+    const metadata = (await currentUser())?.privateMetadata as { platformRole?: string } | undefined;
+    const userRole: CurrentContext["userRole"] = metadata?.platformRole === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER";
     const supportOrganizationId = (await cookies()).get("oasis_support_org")?.value;
     if (userRole === "SUPER_ADMIN" && supportOrganizationId) {
       const [organization] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, supportOrganizationId)).limit(1);

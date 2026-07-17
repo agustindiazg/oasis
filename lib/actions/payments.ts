@@ -7,9 +7,52 @@ import { z } from "zod";
 import { assertWorkspaceAdmin, getCurrentContext } from "@/lib/current-context";
 import { db } from "@/lib/db";
 import { auditLogs, billingPeriods } from "@/lib/db/schema";
+import { parseMoney } from "@/lib/money";
 import { syncPaymentLinks } from "@/lib/payments/service";
 
 const periodIdSchema = z.string().uuid().or(z.string().startsWith("period-"));
+const amountSchema = z.string().trim().min(1);
+export type AmountUpdateState = { ok: boolean; amount?: number; message?: string };
+
+export async function updateBillingPeriodAmount(_previousState: AmountUpdateState, formData: FormData): Promise<AmountUpdateState> {
+  const contextPromise = getCurrentContext();
+  const periodId = periodIdSchema.parse(formData.get("periodId"));
+  const rawAmount = amountSchema.parse(formData.get("amount"));
+  const amount = parseMoney(rawAmount);
+  if (amount <= 0) return { ok: false, message: "El monto debe ser mayor a cero." };
+
+  const context = await contextPromise;
+  assertWorkspaceAdmin(context);
+  const [period] = await db.select({ id: billingPeriods.id, clientId: billingPeriods.clientId, amount: billingPeriods.amount })
+    .from(billingPeriods)
+    .where(and(
+      eq(billingPeriods.id, periodId),
+      eq(billingPeriods.organizationId, context.organizationId),
+      inArray(billingPeriods.status, ["PENDING", "OVERDUE", "REJECTED"]),
+    ))
+    .limit(1);
+
+  if (!period) return { ok: false, message: "Este cobro ya no se puede editar." };
+
+  await db.transaction(async (tx) => {
+    await tx.update(billingPeriods).set({ amount, paymentLink: null }).where(eq(billingPeriods.id, period.id));
+    await tx.insert(auditLogs).values({
+      id: crypto.randomUUID(),
+      organizationId: context.organizationId,
+      userId: context.userId,
+      action: "billing_period.amount_updated",
+      entityType: "billing_period",
+      entityId: period.id,
+      metadata: { previousAmount: period.amount, amount },
+    });
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/cobros");
+  revalidatePath(`/admin/cobros/${period.id}`);
+  revalidatePath(`/admin/clientes/${period.clientId}`);
+  return { ok: true, amount, message: "Monto actualizado correctamente." };
+}
 
 export async function generatePaymentLink(formData: FormData) {
   const contextPromise = getCurrentContext();

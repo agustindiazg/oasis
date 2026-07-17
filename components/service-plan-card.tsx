@@ -14,6 +14,6 @@ export function ServicePlanCard({ plan }: { plan?: Plan }) {
   const state = statusMeta[plan.status];
   return <section className="h-fit rounded-2xl border border-black/10 bg-[#e8e7df] p-5 sm:p-7">
     <div className="flex items-start justify-between gap-4"><div><p className="mono text-[9px] uppercase tracking-[.15em] text-black/40">Servicio y plan</p><h3 className="mt-3 text-xl font-bold tracking-[-.05em]">{plan.serviceName}</h3></div><span className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-bold ${state.tone}`}>{state.label}</span></div>
-    <PlanActions planId={plan.id} status={plan.status} />
+    <PlanActions planId={plan.id} clientId={plan.clientId} status={plan.status} />
   </section>;
 }
