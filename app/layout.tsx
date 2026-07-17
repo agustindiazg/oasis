@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Oasis — Cobros que se ordenan solos",
-  description: "Oasis mantiene tus cobros recurrentes al día, automáticamente.",
+  description: "Oasis ordena tus servicios recurrentes, refleja tus pagos de Mercado Pago y te avisa qué necesita atención.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
