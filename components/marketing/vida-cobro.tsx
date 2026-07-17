@@ -83,13 +83,20 @@ export function VidaCobro() {
         <p className="mono mt-4 text-center text-[9px] uppercase tracking-[.16em] text-[#6f716b] lg:hidden">Tocá las etapas para recorrer el cobro</p>
       </div>
     </div>
-    <div className="lg:order-1">
-      {steps.map((state, index) => <div key={state.label} ref={(node) => { refs.current[index] = node; }} className="py-8 lg:flex lg:min-h-[62vh] lg:flex-col lg:justify-center lg:py-10">
-        <p className="mono text-[10px] uppercase tracking-[.18em] transition-colors duration-500" style={{ color: index === active ? state.accent : "#555850" }}>{state.label}</p>
-        <h3 className={`display mt-5 text-4xl font-semibold transition-opacity duration-500 sm:text-5xl ${index === active ? "" : "lg:opacity-30"}`}>{state.title}</h3>
-        <p className={`mt-5 max-w-[420px] text-[15px] leading-7 text-[#a9aaa3] transition-opacity duration-500 ${index === active ? "" : "lg:opacity-30"}`}>{state.body}</p>
-        {index === 1 && <p className={`mono mt-5 flex items-center gap-2 text-[10px] uppercase tracking-[.15em] text-acid transition-opacity duration-500 ${index === active ? "" : "lg:opacity-30"}`}><Icon name="check" className="h-3.5 w-3.5" /> Directo a tu cuenta</p>}
-      </div>)}
+    <div className="relative lg:order-1">
+      <div aria-hidden className="absolute inset-y-0 left-[11px] w-px bg-gradient-to-b from-transparent via-paper/15 to-transparent" />
+      {steps.map((state, index) => {
+        const [num, name] = state.label.split(" · ");
+        return <div key={state.label} ref={(node) => { refs.current[index] = node; }} className="py-6 lg:flex lg:min-h-[42vh] lg:flex-col lg:justify-center lg:py-8">
+          <p className="mono flex items-center gap-4 text-[10px] uppercase tracking-[.18em] transition-colors duration-500" style={{ color: index === active ? state.accent : "#555850" }}>
+            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full border bg-[#080808] text-[9px] font-bold transition-colors duration-500" style={{ borderColor: index === active ? state.accent : index < active ? "rgba(241,240,233,.3)" : "rgba(241,240,233,.14)", color: index === active ? state.accent : index < active ? "#a9aaa3" : "#555850" }}>{num}</span>
+            {name}
+          </p>
+          <h3 className={`display mt-4 pl-10 text-4xl font-semibold transition-opacity duration-500 sm:text-5xl ${index === active ? "" : "lg:opacity-30"}`}>{state.title}</h3>
+          <p className={`mt-4 max-w-[420px] pl-10 text-[15px] leading-7 text-[#a9aaa3] transition-opacity duration-500 ${index === active ? "" : "lg:opacity-30"}`}>{state.body}</p>
+          {index === 1 && <p className={`mono mt-4 flex items-center gap-2 pl-10 text-[10px] uppercase tracking-[.15em] text-acid transition-opacity duration-500 ${index === active ? "" : "lg:opacity-30"}`}><Icon name="check" className="h-3.5 w-3.5" /> Directo a tu cuenta</p>}
+        </div>;
+      })}
     </div>
   </div>;
 }
