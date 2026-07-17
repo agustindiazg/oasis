@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
-import { authClient } from "@/lib/auth-client";
+import { useClerk, useUser } from "@/lib/auth-client";
 import { initials } from "@/lib/ui";
 import { useAdminContext } from "@/components/admin-context";
 
@@ -25,15 +25,16 @@ export function AdminShell({ children, isSuperAdmin = false }: { children: React
   const effectiveSuperAdmin = isSuperAdmin || adminContext.isSuperAdmin;
   const pathname = usePathname();
   const router = useRouter();
-  const { data: session } = authClient.useSession();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const [collapsed, setCollapsed] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const [consoleAccess, setConsoleAccess] = useState(effectiveSuperAdmin);
   const [workspaceName, setWorkspaceName] = useState(adminContext.workspaceName);
-  const name = session?.user.name ?? "Ana Torres";
-  const email = session?.user.email ?? "Entorno local";
+  const name = user?.fullName ?? user?.firstName ?? "Ana Torres";
+  const email = user?.primaryEmailAddress?.emailAddress ?? "Entorno local";
   const isActive = (href: string) => href === "/admin" ? pathname === href : pathname.startsWith(href);
 
   useEffect(() => {
@@ -55,7 +56,7 @@ export function AdminShell({ children, isSuperAdmin = false }: { children: React
   async function handleLogout() {
     setLogoutError("");
     try {
-      await authClient.signOut();
+      await signOut();
       router.push("/");
       router.refresh();
     } catch {

@@ -36,6 +36,13 @@
       "when": 1784293695000,
       "tag": "0004_secure_payment_environment",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1784295000000,
+      "tag": "0005_clerk_identity",
+      "breakpoints": true
     }
   ]
 }

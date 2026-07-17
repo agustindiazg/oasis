@@ -1,7 +1,7 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 
 function key() {
-  const secret = process.env.PAYMENT_TOKEN_ENCRYPTION_KEY ?? process.env.BETTER_AUTH_SECRET;
+  const secret = process.env.PAYMENT_TOKEN_ENCRYPTION_KEY ?? process.env.OASIS_APP_SECRET;
   if (!secret) throw new Error("Falta PAYMENT_TOKEN_ENCRYPTION_KEY.");
   return createHash("sha256").update(secret).digest();
 }

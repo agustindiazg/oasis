@@ -3,8 +3,8 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 type OAuthState = { organizationId: string; userId: string; issuedAt: number };
 
 function secret() {
-  if (!process.env.BETTER_AUTH_SECRET) throw new Error("Falta BETTER_AUTH_SECRET.");
-  return process.env.BETTER_AUTH_SECRET;
+  if (!process.env.OASIS_APP_SECRET) throw new Error("Falta OASIS_APP_SECRET.");
+  return process.env.OASIS_APP_SECRET;
 }
 
 export function createOAuthState(value: Omit<OAuthState, "issuedAt">) {

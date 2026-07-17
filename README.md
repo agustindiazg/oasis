@@ -5,7 +5,7 @@ MVP para gestionar clientes, planes recurrentes, cobros automáticos y recordato
 ## Stack
 
 - Next.js 15, React 19 y Tailwind CSS
-- Better Auth con Google
+- Clerk con Google
 - MySQL y Drizzle ORM
 - Mercado Pago mediante OAuth, Checkout Pro y Webhooks
 - Resend opcional para recordatorios por email
@@ -30,16 +30,16 @@ npm run dev
 Crear credenciales OAuth en Google Cloud y configurar:
 
 ```env
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-BETTER_AUTH_URL=https://tu-dominio.com
-BETTER_AUTH_SECRET=un-secreto-largo-y-aleatorio
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=
+CLERK_SECRET_KEY=
+NEXT_PUBLIC_APP_URL=https://tu-dominio.com
+OASIS_APP_SECRET=un-secreto-largo-y-aleatorio
 ```
 
 Callback autorizado de Google:
 
 ```text
-https://tu-dominio.com/api/auth/callback/google
+Configurar Google como proveedor social dentro del dashboard de Clerk. Clerk gestiona el callback de OAuth.
 ```
 
 `SUPER_ADMIN_EMAILS` acepta una lista separada por comas. Esos usuarios pueden abrir `/console` y entrar temporalmente a cualquier workspace. El acceso queda limitado por una cookie HttpOnly de cuatro horas y las mutaciones relevantes se registran en `audit_logs`.

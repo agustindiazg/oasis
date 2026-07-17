@@ -1,5 +1,3 @@
 "use client";
 
-import { createAuthClient } from "better-auth/react";
-
-export const authClient = createAuthClient();
+export { useClerk, useUser } from "@clerk/nextjs";

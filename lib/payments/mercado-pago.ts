@@ -22,9 +22,9 @@ export class MercadoPagoProvider implements PaymentProvider {
         notification_url: input.notificationUrl,
         auto_return: "approved",
         back_urls: {
-          success: `${process.env.BETTER_AUTH_URL}/pago/resultado?status=success`,
-          pending: `${process.env.BETTER_AUTH_URL}/pago/resultado?status=pending`,
-          failure: `${process.env.BETTER_AUTH_URL}/pago/resultado?status=failure`,
+          success: `${process.env.NEXT_PUBLIC_APP_URL}/pago/resultado?status=success`,
+          pending: `${process.env.NEXT_PUBLIC_APP_URL}/pago/resultado?status=pending`,
+          failure: `${process.env.NEXT_PUBLIC_APP_URL}/pago/resultado?status=failure`,
         },
       }),
     });

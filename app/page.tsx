@@ -11,6 +11,7 @@ import { ChaosCollage } from "@/components/marketing/chaos-collage";
 import { ClientTable } from "@/components/marketing/client-table";
 import { VidaCobro } from "@/components/marketing/vida-cobro";
 import { MoneyFlow } from "@/components/marketing/money-flow";
+import { AuthControls } from "@/components/marketing/auth-controls";
 
 const navLinks = [["#producto", "Producto"], ["#seguridad", "Seguridad"], ["#preguntas", "Preguntas"]] as const;
 
@@ -50,11 +51,11 @@ export default function Home() {
         <div className="relative z-30"><Logo /></div>
         <div className="hidden items-center gap-8 text-[12px] text-[#b6b7b0] md:flex">{navLinks.map(([href, label]) => <a key={href} href={href} className={`transition hover:text-paper ${focusClasses}`}>{label}</a>)}</div>
         <div className="flex items-center gap-3">
-          <a href="/admin" className={`hidden text-[12px] text-[#b6b7b0] transition hover:text-paper sm:block ${focusClasses}`}>Iniciar sesión</a>
+          <div className="hidden sm:block"><AuthControls /></div>
           <a href="#espera" onClick={closeMenu} className={`rounded-full bg-paper px-4 py-2.5 text-[12px] font-bold text-ink transition hover:bg-acid ${focusClasses}`}>Sumate a la lista <Icon name="arrow" className="ml-1 inline h-3.5 w-3.5" /></a>
           <button type="button" onClick={() => setMenuOpen((open) => !open)} className={`relative z-30 ml-1 grid h-9 w-9 place-items-center rounded-full border hairline transition hover:bg-paper/10 md:hidden ${focusClasses}`} aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="mobile-menu"><Icon name="menu" /></button>
         </div>
-        {menuOpen && <div id="mobile-menu" className="absolute inset-x-5 top-[76px] z-20 rounded-2xl border hairline bg-[#111111] p-3 shadow-2xl md:hidden"><div className="flex flex-col gap-1 text-[13px]">{navLinks.map(([href, label]) => <a key={href} href={href} onClick={closeMenu} className={`rounded-xl px-4 py-3 text-[#b6b7b0] transition hover:bg-paper/10 hover:text-paper ${focusClasses}`}>{label}</a>)}<a href="/admin" onClick={closeMenu} className={`mt-2 rounded-xl bg-paper px-4 py-3 font-bold text-ink transition hover:bg-acid ${focusClasses}`}>Iniciar sesión</a></div></div>}
+        {menuOpen && <div id="mobile-menu" className="absolute inset-x-5 top-[76px] z-20 rounded-2xl border hairline bg-[#111111] p-3 shadow-2xl md:hidden"><div className="flex flex-col gap-1 text-[13px]">{navLinks.map(([href, label]) => <a key={href} href={href} onClick={closeMenu} className={`rounded-xl px-4 py-3 text-[#b6b7b0] transition hover:bg-paper/10 hover:text-paper ${focusClasses}`}>{label}</a>)}<div className="mt-2 border-t hairline px-1 pt-2"><AuthControls /></div></div></div>}
       </nav>
 
       {/* 00 — Hero: one claim, the real product in the first viewport. */}

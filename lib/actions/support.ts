@@ -35,7 +35,7 @@ export async function sendWaitlistInvite(formData: FormData) {
 
   try {
     const provider = new ResendNotificationProvider();
-    const appUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     await provider.sendEmail({ to: lead.email, subject: "Oasis está listo para ordenar tus cobros", html: inviteEmail({ email: lead.email, appUrl }) });
     await db.update(waitlistLeads).set({ status: "CONTACTED" }).where(eq(waitlistLeads.id, lead.id));
     await db.insert(auditLogs).values({ id: crypto.randomUUID(), userId: context.userId, action: "waitlist.invite_sent", entityType: "waitlist_lead", entityId: lead.id, metadata: { email: lead.email } });

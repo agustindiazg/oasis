@@ -1,8 +1,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 
 function secret() {
-  if (!process.env.BETTER_AUTH_SECRET) throw new Error("Falta BETTER_AUTH_SECRET.");
-  return process.env.BETTER_AUTH_SECRET;
+  if (!process.env.OASIS_APP_SECRET) throw new Error("Falta OASIS_APP_SECRET.");
+  return process.env.OASIS_APP_SECRET;
 }
 
 function signatureFor(organizationId: string) {
@@ -10,7 +10,7 @@ function signatureFor(organizationId: string) {
 }
 
 export function createWebhookUrl(organizationId: string) {
-  const url = new URL("/api/payments/mercadopago/webhook", process.env.BETTER_AUTH_URL);
+  const url = new URL("/api/payments/mercadopago/webhook", process.env.NEXT_PUBLIC_APP_URL);
   url.searchParams.set("organizationId", organizationId);
   url.searchParams.set("signature", signatureFor(organizationId));
   url.searchParams.set("source_news", "webhooks");

@@ -19,6 +19,7 @@ const updatedAt = () => timestamp("updated_at").defaultNow().onUpdateNow().notNu
 
 export const user = mysqlTable("user", {
   id: id().primaryKey(),
+  clerkUserId: varchar("clerk_user_id", { length: 64 }),
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 255 }).notNull(),
   emailVerified: boolean("email_verified").default(false).notNull(),
@@ -26,7 +27,7 @@ export const user = mysqlTable("user", {
   role: mysqlEnum("role", ["USER", "SUPER_ADMIN"]).default("USER").notNull(),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
-}, (table) => [uniqueIndex("user_email_unique").on(table.email)]);
+}, (table) => [uniqueIndex("user_email_unique").on(table.email), uniqueIndex("user_clerk_user_id_unique").on(table.clerkUserId)]);
 
 export const session = mysqlTable("session", {
   id: id().primaryKey(),
