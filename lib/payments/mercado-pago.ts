@@ -2,6 +2,10 @@ import type { PaymentProvider, ProviderPayment } from "@/lib/payments/types";
 
 const API = "https://api.mercadopago.com";
 
+export function mercadoPagoPaymentUrl(paymentId: string) {
+  return `https://www.mercadopago.com.ar/activities/payment/${encodeURIComponent(paymentId)}`;
+}
+
 type TokenResponse = { access_token: string; refresh_token?: string; expires_in: number; user_id: number };
 
 export class MercadoPagoProvider implements PaymentProvider {
@@ -28,8 +32,8 @@ export class MercadoPagoProvider implements PaymentProvider {
   }
 
   async getPayment(paymentId: string): Promise<ProviderPayment> {
-    const payment = await this.request<{ id: number; external_reference: string | null; status: string; transaction_amount: number; currency_id: string; date_approved: string | null }>(`/v1/payments/${paymentId}`);
-    return { id: String(payment.id), externalReference: payment.external_reference, status: payment.status, amount: Math.round(payment.transaction_amount * 100), currency: payment.currency_id, paidAt: payment.date_approved ? new Date(payment.date_approved) : null, raw: payment };
+    const payment = await this.request<{ id: number; collector_id?: number; external_reference: string | null; status: string; transaction_amount: number; currency_id: string; date_approved: string | null }>(`/v1/payments/${paymentId}`);
+    return { id: String(payment.id), externalReference: payment.external_reference, collectorId: payment.collector_id ? String(payment.collector_id) : null, status: payment.status, amount: Math.round(payment.transaction_amount * 100), currency: payment.currency_id, paidAt: payment.date_approved ? new Date(payment.date_approved) : null, raw: payment };
   }
 
   private async request<T>(path: string, init?: RequestInit): Promise<T> {

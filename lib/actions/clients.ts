@@ -7,7 +7,7 @@ import { and, eq, gte, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db";
 import { auditLogs, billingPeriods, billingPlans, clients } from "@/lib/db/schema";
-import { getCurrentContext } from "@/lib/current-context";
+import { assertWorkspaceAdmin, getCurrentContext } from "@/lib/current-context";
 import { computeInitialDueDate } from "@/lib/billing/schedule";
 import { generatePeriodsForPlan } from "@/lib/billing/generate";
 import { parseMoney } from "@/lib/money";
@@ -21,8 +21,8 @@ const schema = z.object({
   startedAt: z.iso.date(),
   serviceName: z.string().trim().min(2),
   amount: z.string().min(1),
-  currency: z.enum(["ARS", "USD"]),
-  frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY", "CUSTOM"]),
+  currency: z.literal("ARS"),
+  frequency: z.enum(["WEEKLY", "BIWEEKLY", "MONTHLY"]),
   dueDay: z.coerce.number().int().min(0).max(31),
   intervalDays: z.coerce.number().int().min(1).max(365).optional(),
   firstCharge: z.enum(["NEXT", "TODAY", "CUSTOM"]),
@@ -31,6 +31,7 @@ const schema = z.object({
 
 export async function createClient(formData: FormData) {
   const context = await getCurrentContext();
+  assertWorkspaceAdmin(context);
   const values = schema.parse(Object.fromEntries(formData));
   const clientId = crypto.randomUUID();
   const planId = crypto.randomUUID();
@@ -59,7 +60,7 @@ export async function createClient(formData: FormData) {
       amount,
       currency: values.currency,
       frequency: values.frequency,
-      intervalDays: values.frequency === "CUSTOM" ? values.intervalDays ?? 30 : null,
+      intervalDays: null,
       dueDay: values.frequency === "MONTHLY" || values.frequency === "WEEKLY" ? values.dueDay : null,
       nextPeriodAt: baseDueDate,
     });
@@ -82,6 +83,7 @@ const inlineDetailsSchema = z.object({
 
 export async function updateClientDetails(formData: FormData) {
   const context = await getCurrentContext();
+  assertWorkspaceAdmin(context);
   const values = inlineDetailsSchema.parse(Object.fromEntries(formData));
   await db.transaction(async (tx) => {
     await tx.update(clients).set({ notes: values.notes || null, startedAt: new Date(`${values.startedAt}T12:00:00`) }).where(and(eq(clients.id, values.clientId), eq(clients.organizationId, context.organizationId)));
@@ -92,11 +94,12 @@ export async function updateClientDetails(formData: FormData) {
 
 export async function updateClientPlan(formData: FormData) {
   const context = await getCurrentContext();
+  assertWorkspaceAdmin(context);
   const values = updateSchema.parse(Object.fromEntries(formData));
   const [plan] = await db.select().from(billingPlans).where(and(eq(billingPlans.id, values.planId), eq(billingPlans.clientId, values.clientId), eq(billingPlans.organizationId, context.organizationId))).limit(1);
   if (!plan) throw new Error("Plan no encontrado.");
   const amount = parseMoney(values.amount);
-  const intervalDays = values.frequency === "CUSTOM" ? values.intervalDays ?? 30 : null;
+    const intervalDays = null;
   const dueDay = values.frequency === "MONTHLY" || values.frequency === "WEEKLY" ? values.dueDay : null;
   const scheduleChanged = plan.frequency !== values.frequency || plan.dueDay !== dueDay || plan.intervalDays !== intervalDays;
   const nextPeriodAt = scheduleChanged ? computeInitialDueDate(values.frequency, dueDay, intervalDays) : plan.nextPeriodAt;

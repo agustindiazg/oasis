@@ -4,12 +4,13 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, gte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import { auditLogs, billingPeriods, billingPlans } from "@/lib/db/schema";
-import { getCurrentContext } from "@/lib/current-context";
+import { assertWorkspaceAdmin, getCurrentContext } from "@/lib/current-context";
 import { computeInitialDueDate } from "@/lib/billing/schedule";
 import { generatePeriodsForPlan } from "@/lib/billing/generate";
 
 export async function updatePlanStatus(formData: FormData) {
   const context = await getCurrentContext();
+  assertWorkspaceAdmin(context);
   const planId = String(formData.get("planId") ?? "");
   const action = String(formData.get("action") ?? "") as "pause" | "cancel" | "reactivate";
   const [plan] = await db.select().from(billingPlans).where(and(eq(billingPlans.id, planId), eq(billingPlans.organizationId, context.organizationId))).limit(1);

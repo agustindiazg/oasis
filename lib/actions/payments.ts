@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { getCurrentContext } from "@/lib/current-context";
+import { assertWorkspaceAdmin, getCurrentContext } from "@/lib/current-context";
 import { db } from "@/lib/db";
 import { auditLogs, billingPeriods } from "@/lib/db/schema";
 import { syncPaymentLinks } from "@/lib/payments/service";
@@ -15,6 +15,7 @@ export async function generatePaymentLink(formData: FormData) {
   const contextPromise = getCurrentContext();
   const periodId = periodIdSchema.parse(formData.get("periodId"));
   const context = await contextPromise;
+  assertWorkspaceAdmin(context);
   const [period] = await db.select({ id: billingPeriods.id, clientId: billingPeriods.clientId })
     .from(billingPeriods)
     .where(and(

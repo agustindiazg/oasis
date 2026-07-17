@@ -23,7 +23,7 @@ npm run db:seed
 npm run dev
 ```
 
-`AUTH_DEV_BYPASS=true` permite explorar el admin local sin configurar Google. Nunca debe habilitarse en producción.
+`AUTH_DEV_BYPASS=true` permite explorar el admin local sin configurar Google. Nunca debe habilitarse en producción. Para probar las herramientas internas de soporte, se puede usar `AUTH_DEV_ROLE=SUPER_ADMIN`; si no se define, el bypass entra como usuario común.
 
 ## Autenticación
 
@@ -42,7 +42,7 @@ Callback autorizado de Google:
 https://tu-dominio.com/api/auth/callback/google
 ```
 
-`SUPER_ADMIN_EMAILS` acepta una lista separada por comas. Esos usuarios pueden abrir `/support` y entrar temporalmente a cualquier workspace. El acceso queda limitado por una cookie HttpOnly de cuatro horas y las mutaciones relevantes se registran en `audit_logs`.
+`SUPER_ADMIN_EMAILS` acepta una lista separada por comas. Esos usuarios pueden abrir `/console` y entrar temporalmente a cualquier workspace. El acceso queda limitado por una cookie HttpOnly de cuatro horas y las mutaciones relevantes se registran en `audit_logs`.
 
 ## Mercado Pago
 
@@ -62,7 +62,7 @@ Registrar como redirect URI exactamente la URL anterior. En Webhooks activar el 
 https://tu-dominio.com/api/payments/mercadopago/webhook
 ```
 
-Oasis agrega a cada preferencia una URL específica por workspace. Los access/refresh tokens se guardan cifrados con AES-256-GCM.
+Oasis agrega a cada preferencia una URL específica por workspace, firmada para impedir que el `organizationId` pueda ser alterado en un webhook. Además, valida que el `collector_id` del pago coincida con la cuenta Mercado Pago conectada. Los access/refresh tokens se guardan cifrados con AES-256-GCM.
 
 ### Sandbox de Mercado Pago
 
@@ -74,7 +74,7 @@ MERCADO_PAGO_SANDBOX_USER_ID=
 MERCADO_PAGO_SANDBOX_ENABLED=true
 ```
 
-En desarrollo, Preferencias mostrará **Usar sandbox**. Esta conexión emplea el vendedor ficticio creado por Mercado Pago y puede reemplazarse luego por OAuth productivo.
+En desarrollo, Preferencias mostrará **Usar sandbox**. Esta conexión emplea el vendedor ficticio creado por Mercado Pago y queda marcada como `SANDBOX`; puede reemplazarse luego por OAuth productivo. El sandbox configurado por variables es una cuenta de prueba fija para desarrollo, no una conexión OAuth independiente por workspace.
 
 El callback y el webhook deben estar expuestos mediante una URL HTTPS pública. Si se usa un túnel de desarrollo, su acceso debe permitir visitantes anónimos: un túnel que responda `401` antes de llegar a Next.js no puede recibir redirecciones ni notificaciones de Mercado Pago.
 

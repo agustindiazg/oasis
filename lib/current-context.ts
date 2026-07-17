@@ -44,6 +44,18 @@ async function ensureMembership(userId: string, name: string, email: string) {
 }
 
 export async function getCurrentContext(): Promise<CurrentContext> {
+  if (process.env.NODE_ENV !== "production" && process.env.AUTH_DEV_BYPASS === "true") {
+    const membership = await findMembership("dev-user");
+    if (!membership) throw new Error("Falta ejecutar `npm run db:seed` para usar AUTH_DEV_BYPASS.");
+    const devRole = process.env.AUTH_DEV_ROLE === "SUPER_ADMIN" ? "SUPER_ADMIN" : "USER";
+    const supportOrganizationId = (await cookies()).get("oasis_support_org")?.value;
+    if (devRole === "SUPER_ADMIN" && supportOrganizationId) {
+      const [organization] = await db.select({ id: organizations.id, name: organizations.name }).from(organizations).where(eq(organizations.id, supportOrganizationId)).limit(1);
+      if (organization) return { userId: "dev-user", userName: "Ana Torres", userEmail: "ana@estudio.com", userRole: devRole, organizationId: organization.id, organizationName: organization.name, membershipRole: "ADMIN", isDevBypass: true };
+    }
+    return { userId: "dev-user", userName: "Ana Torres", userEmail: "ana@estudio.com", userRole: devRole, ...membership, isDevBypass: true };
+  }
+
   const sessionData = await auth.api.getSession({ headers: await headers() });
 
   if (sessionData?.user) {
@@ -67,16 +79,16 @@ export async function getCurrentContext(): Promise<CurrentContext> {
     };
   }
 
-  if (process.env.NODE_ENV !== "production" && process.env.AUTH_DEV_BYPASS === "true") {
-    const membership = await findMembership("dev-user");
-    if (!membership) throw new Error("Falta ejecutar `npm run db:seed` para usar AUTH_DEV_BYPASS.");
-    return { userId: "dev-user", userName: "Ana Torres", userEmail: "ana@estudio.com", userRole: "USER", ...membership, isDevBypass: true };
-  }
-
   redirect("/login");
 }
 
 export async function assertOrganizationAccess(organizationId: string, userId: string) {
   const [membership] = await db.select({ id: organizationMembers.id }).from(organizationMembers).where(and(eq(organizationMembers.organizationId, organizationId), eq(organizationMembers.userId, userId))).limit(1);
   if (!membership) throw new Error("No tenés acceso a esta organización.");
+}
+
+export function assertWorkspaceAdmin(context: Pick<CurrentContext, "membershipRole">) {
+  if (context.membershipRole !== "OWNER" && context.membershipRole !== "ADMIN") {
+    throw new Error("No tenés permisos para modificar este workspace.");
+  }
 }

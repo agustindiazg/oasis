@@ -3,6 +3,7 @@ export type PaymentProviderName = "MERCADO_PAGO" | "STRIPE" | "GALIO";
 export type ProviderPayment = {
   id: string;
   externalReference: string | null;
+  collectorId?: string | null;
   status: string;
   amount: number;
   currency: string;

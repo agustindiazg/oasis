@@ -4,20 +4,34 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { paymentConnections, webhookEvents } from "@/lib/db/schema";
 import { applyProviderPayment, resolveMercadoPagoProvider } from "@/lib/payments/service";
+import { verifyWebhookSignature } from "@/lib/payments/webhook-signature";
 
 type WebhookBody = { id?: string | number; type?: string; action?: string; data?: { id?: string | number } };
 
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const organizationId = url.searchParams.get("organizationId");
-  const body = await request.json() as WebhookBody;
+  let body: WebhookBody;
+  try {
+    body = await request.json() as WebhookBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
   const dataId = String(url.searchParams.get("data.id") ?? body.data?.id ?? "");
   const eventId = String(body.id ?? `${body.action ?? "payment"}-${dataId}`);
-  if (body.type !== "payment" || !dataId || !organizationId) return NextResponse.json({ received: true });
+  const webhookSignature = url.searchParams.get("signature");
+  if (body.type !== "payment" || !dataId || !organizationId || !webhookSignature) return NextResponse.json({ received: true });
+  if (!verifyWebhookSignature(organizationId, webhookSignature)) return NextResponse.json({ error: "Invalid webhook routing signature" }, { status: 401 });
   if (!verifySignature(request, dataId)) return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
 
-  await db.insert(webhookEvents).values({ id: crypto.randomUUID(), provider: "MERCADO_PAGO", providerEventId: eventId, payload: body }).onDuplicateKeyUpdate({ set: { payload: body, status: "RECEIVED", error: null } });
   try {
+    const [existingEvent] = await db.select().from(webhookEvents).where(and(eq(webhookEvents.provider, "MERCADO_PAGO"), eq(webhookEvents.providerEventId, eventId))).limit(1);
+    if (existingEvent?.status === "PROCESSED") return NextResponse.json({ received: true });
+    if (existingEvent) {
+      await db.update(webhookEvents).set({ payload: body, status: "RECEIVED", error: null, processedAt: null }).where(and(eq(webhookEvents.provider, "MERCADO_PAGO"), eq(webhookEvents.providerEventId, eventId), eq(webhookEvents.status, "FAILED")));
+    } else {
+      await db.insert(webhookEvents).values({ id: crypto.randomUUID(), provider: "MERCADO_PAGO", providerEventId: eventId, payload: body });
+    }
     const [connection] = await db.select().from(paymentConnections).where(and(eq(paymentConnections.organizationId, organizationId), eq(paymentConnections.provider, "MERCADO_PAGO"), eq(paymentConnections.status, "CONNECTED"))).limit(1);
     if (!connection?.encryptedAccessToken) throw new Error("La cuenta de Mercado Pago no está conectada.");
     const provider = await resolveMercadoPagoProvider(connection);
@@ -27,7 +41,7 @@ export async function POST(request: Request) {
   } catch (error) {
     await db.update(webhookEvents).set({ status: "FAILED", error: error instanceof Error ? error.message : "Error desconocido" }).where(and(eq(webhookEvents.provider, "MERCADO_PAGO"), eq(webhookEvents.providerEventId, eventId)));
     console.error(error);
-    return NextResponse.json({ received: true }, { status: 200 });
+    return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
 }
 

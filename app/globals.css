@@ -13,8 +13,8 @@
 }
 
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
-body { margin: 0; background: var(--ink); color: var(--paper); font-family: 'Manrope', sans-serif; }
+html { scroll-behavior: smooth; background: #f1f0e9; overscroll-behavior-y: none; }
+body { margin: 0; background: #f1f0e9; color: var(--paper); font-family: 'Manrope', sans-serif; overscroll-behavior-y: none; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; }
 
@@ -31,3 +31,13 @@ button { font: inherit; }
 .reveal { animation: reveal .8s cubic-bezier(.16,1,.3,1) both; }
 @keyframes reveal { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; } }
+
+/* Keep browser autofill aligned with the landing page's acid surface. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: #191b1a;
+  -webkit-box-shadow: 0 0 0 1000px #d7f85b inset;
+  box-shadow: 0 0 0 1000px #d7f85b inset;
+  transition: background-color 9999s ease-out;
+}

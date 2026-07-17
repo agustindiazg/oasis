@@ -64,6 +64,15 @@ export const verification = mysqlTable("verification", {
   updatedAt: updatedAt(),
 }, (table) => [index("verification_identifier_idx").on(table.identifier)]);
 
+export const waitlistLeads = mysqlTable("waitlist_leads", {
+  id: id().primaryKey(),
+  email: varchar("email", { length: 255 }).notNull(),
+  source: varchar("source", { length: 80 }).default("landing").notNull(),
+  status: mysqlEnum("status", ["NEW", "CONTACTED", "CONVERTED", "UNSUBSCRIBED"]).default("NEW").notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+}, (table) => [uniqueIndex("waitlist_lead_email_unique").on(table.email), index("waitlist_lead_status_idx").on(table.status)]);
+
 export const organizations = mysqlTable("organizations", {
   id: id().primaryKey(),
   name: varchar("name", { length: 255 }).notNull(),
@@ -149,6 +158,7 @@ export const paymentConnections = mysqlTable("payment_connections", {
   id: id().primaryKey(),
   organizationId: id("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
   provider: mysqlEnum("provider", ["MERCADO_PAGO", "STRIPE", "GALIO"]).notNull(),
+  environment: mysqlEnum("environment", ["PRODUCTION", "SANDBOX"]).default("PRODUCTION").notNull(),
   providerAccountId: varchar("provider_account_id", { length: 255 }),
   encryptedAccessToken: text("encrypted_access_token"),
   encryptedRefreshToken: text("encrypted_refresh_token"),
@@ -222,7 +232,7 @@ export const billingPlansRelations = relations(billingPlans, ({ one, many }) => 
 export const billingPeriodsRelations = relations(billingPeriods, ({ one, many }) => ({ client: one(clients, { fields: [billingPeriods.clientId], references: [clients.id] }), plan: one(billingPlans, { fields: [billingPeriods.planId], references: [billingPlans.id] }), payments: many(payments) }));
 
 export const schema = {
-  user, session, account, verification,
+  user, session, account, verification, waitlistLeads,
   organizations, organizationMembers, businessSettings,
   clients, billingPlans, billingPeriods,
   paymentConnections, payments, webhookEvents, reminderDeliveries, auditLogs,
